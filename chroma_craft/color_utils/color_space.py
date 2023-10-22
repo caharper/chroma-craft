@@ -1,5 +1,11 @@
 import numpy as np
-from colorspacious import cspace_convert
+import colorspacious
+import warnings
+
+
+def gen_random_rgb(seed=None):
+    np.random.seed(seed)
+    return np.random.randint(0, 255, size=3)
 
 
 def is_hex_color(color):
@@ -48,6 +54,124 @@ def rgb_to_hex(rgb):
 
 def cielab_to_rgb(cielab):
     # Clip to be in range [0, 255]
-    rgb = cspace_convert(cielab, "CIELab", "sRGB255")
+    rgb = colorspacious.cspace_convert(cielab, "CIELab", "sRGB255")
     rgb = np.clip(rgb, 0, 255)
     return rgb.astype(int)
+
+
+def find_distant_colors(
+    palette,
+    num_colors,
+    min_dist=3,
+    max_iters=1000,
+    seed=None,
+    colorblind_safe=False,
+    deuteranomaly_safe=None,
+    protanomaly_safe=None,
+    tritanomaly_safe=None,
+):
+    if min_dist < 0:
+        raise ValueError("min_dist must be >= 0")
+
+    if colorblind_safe:
+        # Check if any colorblind variants are not None
+        if deuteranomaly_safe is None:
+            deuteranomaly_safe = True
+        if protanomaly_safe is None:
+            protanomaly_safe = True
+        if tritanomaly_safe is None:
+            tritanomaly_safe = True
+
+        # If any colorblind variants are not True, set all to True and warn user
+        if not all([deuteranomaly_safe, protanomaly_safe, tritanomaly_safe]):
+            warnings.warn(
+                "colorblind_safe is True but not all colorblind variants are True. "
+                "Setting all colorblind variants (deuteranomaly_safe, "
+                "protanomaly_safe, tritanomaly_safe) to True.  This may result in "
+                "undesired behavior."
+            )
+
+    # Confirm num_colors and max_iters are positive integers
+    if not isinstance(num_colors, int) or num_colors < 1:
+        raise ValueError("num_colors must be a positive integer >= 1")
+
+    if not isinstance(max_iters, int) or max_iters < 1:
+        raise ValueError("max_iters must be a positive integer >= 1")
+
+    if max_iters < num_colors:
+        raise ValueError("max_iters must be >= num_colors")
+
+    for _ in range(max_iters):
+        if seed is not None:
+            seed += 1
+        rgb = gen_random_rgb(seed=seed)
+        lab = colorspacious.cspace_convert(rgb, "sRGB255", "CAM02-UCS")[..., np.newaxis]
+        compare_colors = lab[..., np.newaxis]
+
+        if any([deuteranomaly_safe, protanomaly_safe, tritanomaly_safe]):
+            rgb1 = colorspacious.cspace_convert(rgb, "sRGB255", "sRGB1")
+
+            cvd_space = {
+                "name": "sRGB1+CVD",
+                "cvd_type": "deuteranomaly",
+                "severity": 100,
+            }
+
+            # Deuteranomaly colorblindness
+            if deuteranomaly_safe:
+                cvd_space["cvd_type"] = "deuteranomaly"
+                hopper_deuteranomaly_sRGB = colorspacious.cspace_convert(
+                    rgb1, cvd_space, "sRGB1"
+                )
+                hopper_deuteranomaly_color = colorspacious.cspace_convert(
+                    hopper_deuteranomaly_sRGB, "sRGB1", "CAM02-UCS"
+                )[..., np.newaxis, np.newaxis]
+
+                compare_colors = np.concatenate(
+                    (compare_colors, hopper_deuteranomaly_color), axis=2
+                )
+
+            # Protanomaly colorblindness
+            if protanomaly_safe:
+                cvd_space["cvd_type"] = "protanomaly"
+                hopper_protanomaly_sRGB = colorspacious.cspace_convert(
+                    rgb1, cvd_space, "sRGB1"
+                )
+                hopper_protanomaly_color = colorspacious.cspace_convert(
+                    hopper_protanomaly_sRGB, "sRGB1", "CAM02-UCS"
+                )[..., np.newaxis, np.newaxis]
+                compare_colors = np.concatenate(
+                    (compare_colors, hopper_protanomaly_color), axis=2
+                )
+
+            # Tritanomaly colorblindness
+            if tritanomaly_safe:
+                cvd_space["cvd_type"] = "tritanomaly"
+                hopper_tritanomaly_sRGB = colorspacious.cspace_convert(
+                    rgb1, cvd_space, "sRGB1"
+                )
+                hopper_tritanomaly_color = colorspacious.cspace_convert(
+                    hopper_tritanomaly_sRGB, "sRGB1", "CAM02-UCS"
+                )[..., np.newaxis, np.newaxis]
+                compare_colors = np.concatenate(
+                    (compare_colors, hopper_tritanomaly_color), axis=2
+                )
+
+        # Compute distances between colors
+        dists = np.linalg.norm(
+            np.concatenate(palette, axis=1)[..., np.newaxis] - compare_colors, axis=0
+        )
+
+        # Add color if it is sufficiently far from the others
+        if np.min(dists) > min_dist:
+            palette.append(lab)
+
+        # Stop if we have enough colors
+        if len(palette) == num_colors:
+            return palette
+
+    raise ValueError(
+        "Could not generate palette with given parameters. "
+        "Please try again with a different seed, more iterations, "
+        "decrease the minimum distance between colors, or use fewer colors."
+    )

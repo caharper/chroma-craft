@@ -35,19 +35,35 @@ Simple examples are shown below.  For more examples, see the [examples](./exampl
 import chroma_craft as cc
 
 # Create a palette with 5 colors
-palette = cc.generate_palette(3, distance=80, color_format="rgb", seed=11)
+palette = cc.generate_palette(
+    5,
+    min_dist=30,
+    seed=11,
+    output_format="rgb",
+)
 ```
 
 `Note:` a random seed can be provided to ensure reproducibility.  Distance is the distance between colors in the palette.  A larger distance will result in more distinct colors.  If the distance is too large, a warning message will be displayed.  Too large of distances can result in colors that are too similar to each other due to clipping in the RGB color space.  Distance is defined as the Delta-E color difference between colors in the palette.  
 
-### Creating a Palette from a Base Color
+### Creating a Palette from a Base Palette
 
 ```python
 import chroma_craft as cc
 
-# Create a palette with 15 total colors
-palette = cc.generate_palette_with_base(
-    np.array([66.0, 128.0, 99.0]), 15, distance=50, color_format="rgb", seed=37
+# Create a palette with 10 total colors
+extended_palette = cc.extend_palette(
+    [
+        np.array([153, 191, 80]),
+        np.array([107, 88, 11]),
+        np.array([42, 19, 119]),
+        np.array([93, 110, 244]),
+        np.array([213, 114, 236]),
+    ],
+    10,
+    min_dist=10,
+    seed=18,
+    palette_format="rgb",
+    output_format="rgb",
 )
 ```
 

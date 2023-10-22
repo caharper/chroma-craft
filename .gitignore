@@ -1,3 +1,5 @@
 __pycache__
 *chroma_craft.egg-info/
 *.egg
+*playground*
+playground/
