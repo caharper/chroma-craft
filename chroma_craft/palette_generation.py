@@ -2,81 +2,118 @@ import numpy as np
 from chroma_craft.color_utils.color_space import (
     hex_to_rgb,
     rgb_to_hex,
-    cielab_to_rgb,
+    find_distant_colors,
+    gen_random_rgb,
 )
-from chroma_craft.math.utils import generate_evenly_spaced_points_on_sphere
-from colorspacious import cspace_convert
-import warnings
+import colorspacious
 
 
-def generate_palette(n_colors, distance=3, color_format="rgb", seed=None):
-    np.random.seed(seed)
-
-    # Generate random base CIELab color
-    lightness = np.random.uniform(40, 60)  # must be between 0 and 100
-    green_magenta = np.random.uniform(-20, 20)  # must be between -128 and 128
-    blue_yellow = np.random.uniform(-20, 20)  # must be between -128 and 128
-
-    base_color = np.array([lightness, green_magenta, blue_yellow])
-
-    final_colors = generate_palette_with_base(
-        base_color,
-        n_colors,
-        distance,
-        color_format,
-        base_color_format="cielab",
-        seed=seed,
-    )
-
-    return final_colors
-
-
-def generate_palette_with_base(
-    base_color,
-    n_total_colors,
-    distance=3,
-    color_format="rgb",
-    base_color_format="rgb",
+def generate_palette(
+    num_colors,
+    min_dist=3,
+    max_iters=1000,
     seed=None,
+    output_format="rbg",
+    colorblind_safe=False,
+    deuteranomaly_safe=None,
+    protanomaly_safe=None,
+    tritanomaly_safe=None,
 ):
-    if base_color_format != "cielab":
-        if base_color_format == "hex":
-            base_color = hex_to_rgb(base_color)
-        elif base_color_format == "rgb":
-            pass
-        else:
-            raise ValueError(f"Unknown color format {base_color_format}")
+    if output_format not in ["rgb", "hex"]:
+        raise ValueError("output_format must be 'rgb' or 'hex'")
 
-        base_color = cspace_convert(base_color, "sRGB255", "CIELab")
-        base_color = np.clip(base_color, [0, -128, -128], [100, 128, 128])
+    np.random.seed(seed)
+    base_color = colorspacious.cspace_convert(
+        gen_random_rgb(seed=seed), "sRGB255", "CAM02-UCS"
+    )[..., np.newaxis]
+    palette = [base_color]
 
-    # Generate remaining CIELab colors
-    distant_colors = generate_evenly_spaced_points_on_sphere(
-        base_color, n_total_colors - 1, distance, seed=seed
+    palette = find_distant_colors(
+        palette,
+        num_colors,
+        min_dist,
+        max_iters,
+        seed,
+        colorblind_safe,
+        deuteranomaly_safe,
+        protanomaly_safe,
+        tritanomaly_safe,
     )
 
-    # If any values are out of range, raise warning
-    if (
-        np.any(np.abs(distant_colors[:, 1:]) > 128)
-        or np.any(distant_colors[:, 0] > 100)
-        or np.any(distant_colors[:, 0] < 0)
-    ):
-        warnings.warn(
-            "Some generated colors are out of range for CIELab.  This may cause"
-            " unexpected close colors.  Try decreasing the distance parameter."
+    # Convert to RGB
+    palette = [
+        np.clip(
+            colorspacious.cspace_convert(
+                np.squeeze(color), "CAM02-UCS", "sRGB255"
+            ).astype(int),
+            0,
+            255,
         )
+        for color in palette
+    ]
 
-    # Clip values to ensure they are within CIELab range
-    distant_colors = np.clip(distant_colors, [0, -128, -128], [100, 128, 128]).tolist()
+    if output_format == "hex":
+        palette = [rgb_to_hex(color) for color in palette]
 
-    colors = [base_color] + distant_colors
+    return palette
 
-    # Convert to colorspace
-    if color_format == "hex":
-        final_colors = [rgb_to_hex(cielab_to_rgb(color)) for color in colors]
-    elif color_format == "rgb":
-        final_colors = [cielab_to_rgb(color) for color in colors]
-    else:
-        raise ValueError(f"Unknown color format {color_format}")
 
-    return final_colors
+def extend_palette(
+    palette,
+    num_colors,
+    min_dist=3,
+    max_iters=1000,
+    seed=None,
+    palette_format="rgb",
+    output_format="rgb",
+    colorblind_safe=False,
+    deuteranomaly_safe=None,
+    protanomaly_safe=None,
+    tritanomaly_safe=None,
+):
+    if output_format not in ["rgb", "hex"]:
+        raise ValueError("output_format must be 'rgb' or 'hex'")
+
+    if palette_format != "CAM02-UCS":
+        if palette_format == "hex":
+            palette = [hex_to_rgb(color) for color in palette]
+            palette_format = "rgb"
+
+        if palette_format == "rgb":
+            palette_format = "sRGB255"
+
+        palette = [
+            colorspacious.cspace_convert(
+                np.squeeze(color), palette_format, "CAM02-UCS"
+            )[..., np.newaxis]
+            for color in palette
+        ]
+
+    palette = find_distant_colors(
+        palette,
+        num_colors,
+        min_dist,
+        max_iters,
+        seed,
+        colorblind_safe,
+        deuteranomaly_safe,
+        protanomaly_safe,
+        tritanomaly_safe,
+    )
+
+    # Convert to RGB
+    palette = [
+        np.clip(
+            colorspacious.cspace_convert(
+                np.squeeze(color), "CAM02-UCS", "sRGB255"
+            ).astype(int),
+            0,
+            255,
+        )
+        for color in palette
+    ]
+
+    if output_format == "hex":
+        palette = [rgb_to_hex(color) for color in palette]
+
+    return palette
