@@ -41,7 +41,10 @@ palette = cc.generate_palette(
     seed=11,
     output_format="rgb",
 )
+cc.visualize_palette(palette, show=True)
 ```
+
+![base_palette](./images/base_palette.png)
 
 `Note:` a random seed can be provided to ensure reproducibility.  Distance is the distance between colors in the palette.  A larger distance will result in more distinct colors.  If the distance is too large, a warning message will be displayed.  Too large of distances can result in colors that are too similar to each other due to clipping in the RGB color space.  Distance is defined as the Delta-E color difference between colors in the palette.  
 
@@ -65,7 +68,10 @@ extended_palette = cc.extend_palette(
     palette_format="rgb",
     output_format="rgb",
 )
+cc.visualize_palette(extended_palette, show=True)
 ```
+
+![extended_palette](./images/extended_palette.png)
 
 ### Visualizing a Palette
 
@@ -74,6 +80,72 @@ import chroma_craft as cc
 
 cc.visualize_palette(palette, show=True)
 ```
+
+### Colorblind-Safe Palettes
+
+To guard against deutranopia, protanopia, and tritanopia, use the `colorblind_safe` parameter. 
+
+```python
+palette = cc.generate_palette(
+    5,
+    min_dist=30,
+    seed=22,
+    output_format="rgb",
+    colorblind_safe=True,
+)
+cc.visualize_palette(extended_palette, show=True)
+```
+
+![colorblind_palette](./images/colorblind_safe_palette.png)
+
+#### Specific Colorblindness-Safe Palettes
+
+If you want to guard against specific-forms of colorblindness, you can specify the type of colorblindness using the following arguments: `deuteranomaly_safe`, `protanomaly_safe`, and `tritanomaly_safe`.
+
+##### Deuteranopia-Safe Palette
+
+```python
+palette = cc.generate_palette(
+    5,
+    min_dist=30,
+    seed=33,
+    output_format="rgb",
+    deuteranomaly_safe=True,
+)
+cc.visualize_palette(palette, show=True)
+```
+
+![deuteranomaly_palette](./images/deuteranopia_safe_palette.png)
+
+##### Protanopia-Safe Palette
+
+```python
+palette = cc.generate_palette(
+    5,
+    min_dist=30,
+    seed=44,
+    output_format="rgb",
+    protanomaly_safe=True,
+)
+cc.visualize_palette(palette, show=True)
+```
+
+![protanopia_palette](./images/protanopia_safe_palette.png)
+
+##### Tritanopia-Safe Palette
+
+```python
+palette = cc.generate_palette(
+    5,
+    min_dist=30,
+    seed=55,
+    output_format="rgb",
+    tritanomaly_safe=True,
+)
+cc.visualize_palette(palette, show=True)
+```
+
+![tritanopia_palette](./images/tritanopia_safe_palette.png)
 
 ## Contributing
 
