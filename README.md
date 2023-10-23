@@ -16,9 +16,7 @@ Chroma-Craft creates perceptually-distinct color palettes for data visualization
 In your environment, run:
 
 ```bash
-git clone https://github.com/caharper/chroma-craft.git
-cd chroma-craft
-python setup.py develop
+pip install git+https://github.com/caharper/chroma-craft.git
 ```
 
 ### PyPI
